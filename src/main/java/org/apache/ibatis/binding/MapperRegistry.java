@@ -34,6 +34,11 @@ import org.apache.ibatis.session.SqlSession;
 public class MapperRegistry {
 
   private final Configuration config;
+
+  /**
+   * key   : mapper 接口类
+   * value : mapper代理工厂，用来生成代理类
+   */
   private final Map<Class<?>, MapperProxyFactory<?>> knownMappers = new HashMap<>();
 
   public MapperRegistry(Configuration config) {

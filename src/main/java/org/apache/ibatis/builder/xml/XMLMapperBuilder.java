@@ -57,6 +57,13 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private final XPathParser parser;
   private final MapperBuilderAssistant builderAssistant;
+
+  /**
+   * 可被其他语句引用的可重用语句块的集合 <p>
+   * key : id , value : <sql>标签
+   *
+   * <p>例如：<sql id="userColumns"> ${alias}.id,${alias}.username,${alias}.password </sql>
+   */
   private final Map<String, XNode> sqlFragments;
   private final String resource;
 
@@ -91,15 +98,24 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   public void parse() {
+    // 判断当前 mapper 是否加载过
     if (!configuration.isResourceLoaded(resource)) {
+      // 解析 <mapper> 节点
       configurationElement(parser.evalNode("/mapper"));
+
       configuration.addLoadedResource(resource);
+      // 绑定 mapper 接口
       bindMapperForNamespace();
     }
 
+    // 之前解析失败，放入集合中的标签，再次解析。
+    // 当然，实际上，此处还是可能有执行解析失败的情况，
+    // 但是随着每一个 Mapper 配置文件对应的 XMLMapperBuilder 执行一次这些方法，逐步逐步就会被全部解析完 👍
     parsePendingResultMaps();
     parsePendingCacheRefs();
     parsePendingStatements();
+
+
   }
 
   public XNode getSqlFragment(String refid) {
@@ -108,16 +124,23 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void configurationElement(XNode context) {
     try {
+
+      // namespace 不能为空！
       String namespace = context.getStringAttribute("namespace");
       if (namespace == null || namespace.isEmpty()) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
       builderAssistant.setCurrentNamespace(namespace);
+
       cacheRefElement(context.evalNode("cache-ref"));
       cacheElement(context.evalNode("cache"));
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+
       resultMapElements(context.evalNodes("/mapper/resultMap"));
+
       sqlElement(context.evalNodes("/mapper/sql"));
+
+      // 解析 SQL 语句
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
@@ -214,12 +237,17 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * "/mapper/parameterMap"
+   * @param list
+   */
   private void parameterMapElement(List<XNode> list) {
     for (XNode parameterMapNode : list) {
       String id = parameterMapNode.getStringAttribute("id");
       String type = parameterMapNode.getStringAttribute("type");
       Class<?> parameterClass = resolveClass(type);
       List<XNode> parameterNodes = parameterMapNode.evalNodes("parameter");
+
       List<ParameterMapping> parameterMappings = new ArrayList<>();
       for (XNode parameterNode : parameterNodes) {
         String property = parameterNode.getStringAttribute("property");
@@ -240,6 +268,11 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * "/mapper/resultMap"
+   *
+   * @param list
+   */
   private void resultMapElements(List<XNode> list) {
     for (XNode resultMapNode : list) {
       try {
@@ -254,19 +287,33 @@ public class XMLMapperBuilder extends BaseBuilder {
     return resultMapElement(resultMapNode, Collections.emptyList(), null);
   }
 
+  /**
+   * 解析 <resultMap/> 节点 (结果映射)
+   *
+   * @param resultMapNode
+   * @param additionalResultMappings
+   * @param enclosingType
+   * @return
+   */
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings, Class<?> enclosingType) {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
+
+    // 获取 type 属性，写法有意思(从四个属性中依次获取)
     String type = resultMapNode.getStringAttribute("type",
         resultMapNode.getStringAttribute("ofType",
             resultMapNode.getStringAttribute("resultType",
                 resultMapNode.getStringAttribute("javaType"))));
+
     Class<?> typeClass = resolveClass(type);
     if (typeClass == null) {
+      // TODO: 2020-06-27
       typeClass = inheritEnclosingType(resultMapNode, enclosingType);
     }
+
     Discriminator discriminator = null;
     List<ResultMapping> resultMappings = new ArrayList<>(additionalResultMappings);
     List<XNode> resultChildren = resultMapNode.getChildren();
+    // 循环遍历
     for (XNode resultChild : resultChildren) {
       if ("constructor".equals(resultChild.getName())) {
         processConstructorElement(resultChild, typeClass, resultMappings);
@@ -280,6 +327,7 @@ public class XMLMapperBuilder extends BaseBuilder {
         resultMappings.add(buildResultMappingFromContext(resultChild, typeClass, flags));
       }
     }
+
     String id = resultMapNode.getStringAttribute("id",
             resultMapNode.getValueBasedIdentifier());
     String extend = resultMapNode.getStringAttribute("extends");
@@ -288,6 +336,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     try {
       return resultMapResolver.resolve();
     } catch (IncompleteElementException e) {
+      // 解析失败放入集合，等待再次解析
       configuration.addIncompleteResultMap(resultMapResolver);
       throw e;
     }
@@ -314,6 +363,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       if ("idArg".equals(argChild.getName())) {
         flags.add(ResultFlag.ID);
       }
+      // 将当前子节点构建成 ResultMapping 对象，并添加到 resultMappings 中
       resultMappings.add(buildResultMappingFromContext(argChild, resultType, flags));
     }
   }
@@ -340,6 +390,8 @@ public class XMLMapperBuilder extends BaseBuilder {
       sqlElement(list, configuration.getDatabaseId());
     }
     sqlElement(list, null);
+
+    // 上面代码，可以简写成 sqlElement(list, configuration.getDatabaseId());
   }
 
   private void sqlElement(List<XNode> list, String requiredDatabaseId) {
@@ -415,6 +467,10 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * 读取 mapper.xml 文件中的 namespace 属性(接口类) <p>
+   * 将其 Class 放入 configuration.MapperRegistry 中
+   */
   private void bindMapperForNamespace() {
     String namespace = builderAssistant.getCurrentNamespace();
     if (namespace != null) {
@@ -428,6 +484,7 @@ public class XMLMapperBuilder extends BaseBuilder {
         // Spring may not know the real resource name so we set a flag
         // to prevent loading again this resource from the mapper interface
         // look at MapperAnnotationBuilder#loadXmlResource
+        // 标记 namespace 已经添加，避免 MapperAnnotationBuilder#loadXmlResource() 重复加载
         configuration.addLoadedResource("namespace:" + namespace);
         configuration.addMapper(boundType);
       }

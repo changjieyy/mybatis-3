@@ -100,6 +100,9 @@ import org.apache.ibatis.type.TypeHandlerRegistry;
  */
 public class Configuration {
 
+  /**
+   * 存放了 id, TransactionFactory 和 DataSource
+   */
   protected Environment environment;
 
   protected boolean safeRowBoundsEnabled;
@@ -155,6 +158,10 @@ public class Configuration {
   protected final Map<String, MappedStatement> mappedStatements = new StrictMap<MappedStatement>("Mapped Statements collection")
       .conflictMessageProducer((savedValue, targetValue) ->
           ". please check " + savedValue.getResource() + " and " + targetValue.getResource());
+  /**
+   *
+   * key：命名空间 (namespace)
+   */
   protected final Map<String, Cache> caches = new StrictMap<>("Caches collection");
   protected final Map<String, ResultMap> resultMaps = new StrictMap<>("Result Maps collection");
   protected final Map<String, ParameterMap> parameterMaps = new StrictMap<>("Parameter Maps collection");
@@ -935,11 +942,14 @@ public class Configuration {
 
   // Slow but a one time cost. A better solution is welcome.
   protected void checkGloballyForDiscriminatedNestedResultMaps(ResultMap rm) {
+    // 有嵌套
     if (rm.hasNestedResultMaps()) {
       for (Map.Entry<String, ResultMap> entry : resultMaps.entrySet()) {
         Object value = entry.getValue();
         if (value instanceof ResultMap) {
           ResultMap entryResultMap = (ResultMap) value;
+
+          // 不存在内嵌 且有 discriminator
           if (!entryResultMap.hasNestedResultMaps() && entryResultMap.getDiscriminator() != null) {
             Collection<String> discriminatedResultMapNames = entryResultMap.getDiscriminator().getDiscriminatorMap().values();
             if (discriminatedResultMapNames.contains(rm.getId())) {
@@ -953,10 +963,12 @@ public class Configuration {
 
   // Slow but a one time cost. A better solution is welcome.
   protected void checkLocallyForDiscriminatedNestedResultMaps(ResultMap rm) {
+    // 不存在内嵌 ResultMap 并且有 Discriminator
     if (!rm.hasNestedResultMaps() && rm.getDiscriminator() != null) {
       for (Map.Entry<String, String> entry : rm.getDiscriminator().getDiscriminatorMap().entrySet()) {
         String discriminatedResultMapName = entry.getValue();
         if (hasResultMap(discriminatedResultMapName)) {
+          // 如果引用的 ResultMap 存在内嵌 ResultMap ，则标记传入的 ResultMap 存在内嵌 ResultMap
           ResultMap discriminatedResultMap = resultMaps.get(discriminatedResultMapName);
           if (discriminatedResultMap.hasNestedResultMaps()) {
             rm.forceNestedResultMaps();

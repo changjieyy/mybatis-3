@@ -31,6 +31,17 @@ public final class LogFactory {
   private static Constructor<? extends Log> logConstructor;
 
   static {
+    /**
+     * 这里使用了 Lambda 表达式, 对应为：
+     *
+     * tryImplementation(new Runnable() {
+     *     @Override
+     *     public void run() {
+     *         LogFactory.useSlf4jLogging();
+     *     }
+     * });
+     *
+     */
     tryImplementation(LogFactory::useSlf4jLogging);
     tryImplementation(LogFactory::useCommonsLogging);
     tryImplementation(LogFactory::useLog4J2Logging);
