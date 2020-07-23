@@ -30,11 +30,22 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 /**
+ *
+ * XML 动态语句( SQL )构建器，负责将 SQL 解析成 SqlSource 对象。
+ *
+ *
  * @author Clinton Begin
  */
 public class XMLScriptBuilder extends BaseBuilder {
 
+  /**
+   * 当前 SQL 的 XNode 对象
+   */
   private final XNode context;
+
+  /**
+   * 是否为动态 SQL
+   */
   private boolean isDynamic;
   private final Class<?> parameterType;
   private final Map<String, NodeHandler> nodeHandlerMap = new HashMap<>();
@@ -64,7 +75,11 @@ public class XMLScriptBuilder extends BaseBuilder {
   }
 
   public SqlSource parseScriptNode() {
+    // 1. 解析 SqlNode
     MixedSqlNode rootSqlNode = parseDynamicTags(context);
+
+
+    // 2. 将 SqlNode 解析成 SqlSource
     SqlSource sqlSource;
     if (isDynamic) {
       sqlSource = new DynamicSqlSource(configuration, rootSqlNode);
@@ -74,7 +89,13 @@ public class XMLScriptBuilder extends BaseBuilder {
     return sqlSource;
   }
 
+  /**
+   * 将 XNode 解析成 SqlNode
+   * @param node
+   * @return
+   */
   protected MixedSqlNode parseDynamicTags(XNode node) {
+    // 所有的
     List<SqlNode> contents = new ArrayList<>();
     NodeList children = node.getNode().getChildNodes();
     for (int i = 0; i < children.getLength(); i++) {
@@ -82,10 +103,12 @@ public class XMLScriptBuilder extends BaseBuilder {
       if (child.getNode().getNodeType() == Node.CDATA_SECTION_NODE || child.getNode().getNodeType() == Node.TEXT_NODE) {
         String data = child.getStringBody("");
         TextSqlNode textSqlNode = new TextSqlNode(data);
+        // 如果是动态的 TextSqlNode 对象
         if (textSqlNode.isDynamic()) {
           contents.add(textSqlNode);
           isDynamic = true;
         } else {
+          // 创建 StaticTextSqlNode 添加到 contents 中
           contents.add(new StaticTextSqlNode(data));
         }
       } else if (child.getNode().getNodeType() == Node.ELEMENT_NODE) { // issue #628
@@ -94,6 +117,7 @@ public class XMLScriptBuilder extends BaseBuilder {
         if (handler == null) {
           throw new BuilderException("Unknown element <" + nodeName + "> in SQL statement.");
         }
+        // 不同的 node 类型, 执行不同的处理
         handler.handleNode(child, contents);
         isDynamic = true;
       }
@@ -101,7 +125,15 @@ public class XMLScriptBuilder extends BaseBuilder {
     return new MixedSqlNode(contents);
   }
 
+
   private interface NodeHandler {
+
+    /**
+     *
+     * 将 XNode 解析成对应的 SqlNode, 将其放入 List<SqlNode>
+     * @param nodeToHandle
+     * @param targetContents
+     */
     void handleNode(XNode nodeToHandle, List<SqlNode> targetContents);
   }
 

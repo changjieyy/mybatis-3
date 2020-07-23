@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.Reader;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.apache.ibatis.BaseDataTest;
 import org.apache.ibatis.exceptions.PersistenceException;
@@ -33,6 +34,21 @@ import org.junit.jupiter.api.Test;
 
 class AutoConstructorTest {
   private static SqlSessionFactory sqlSessionFactory;
+
+  @Test
+  public void test(){
+
+    Consumer<Integer> consumer1  = (i) -> System.out.println(2 * i);
+    Consumer<Integer> consumer2  = (i) -> System.out.println(i * i);
+
+
+
+
+    consumer1.andThen(consumer2).accept(5);
+//    System.out.println(consumer1.andThen(consumer2).accept("s"););
+
+
+  }
 
   @BeforeAll
   static void setUp() throws Exception {

@@ -140,7 +140,7 @@ public class XMLMapperBuilder extends BaseBuilder {
 
       sqlElement(context.evalNodes("/mapper/sql"));
 
-      // 解析 SQL 语句
+      // 重要： 解析 SQL 语句
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
@@ -155,11 +155,14 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   private void buildStatementFromContext(List<XNode> list, String requiredDatabaseId) {
+    // 遍历 <select /> <insert /> <update /> <delete /> 节点们
     for (XNode context : list) {
+      // 重要: 创建 XMLStatementBuilder 对象，执行解析
       final XMLStatementBuilder statementParser = new XMLStatementBuilder(configuration, builderAssistant, context, requiredDatabaseId);
       try {
         statementParser.parseStatementNode();
       } catch (IncompleteElementException e) {
+        // 解析失败，添加到 configuration 中
         configuration.addIncompleteStatement(statementParser);
       }
     }

@@ -114,10 +114,13 @@ public class MapperAnnotationBuilder {
 
   public void parse() {
     String resource = type.toString();
+    // 判断是否加载过
     if (!configuration.isResourceLoaded(resource)) {
+      // 加载对应的 Mapper.xml 文件
       loadXmlResource();
       configuration.addLoadedResource(resource);
       assistant.setCurrentNamespace(type.getName());
+
       parseCache();
       parseCacheRef();
       for (Method method : type.getMethods()) {
@@ -298,6 +301,8 @@ public class MapperAnnotationBuilder {
     final LanguageDriver languageDriver = getLanguageDriver(method);
 
     getAnnotationWrapper(method, true, statementAnnotationTypes).ifPresent(statementAnnotation -> {
+
+      // 获取 SqlSource
       final SqlSource sqlSource = buildSqlSource(statementAnnotation.getAnnotation(), parameterTypeClass, languageDriver, method);
       final SqlCommandType sqlCommandType = statementAnnotation.getSqlCommandType();
       final Options options = getAnnotationWrapper(method, false, Options.class).map(x -> (Options)x.getAnnotation()).orElse(null);
@@ -308,6 +313,7 @@ public class MapperAnnotationBuilder {
       String keyColumn = null;
       if (SqlCommandType.INSERT.equals(sqlCommandType) || SqlCommandType.UPDATE.equals(sqlCommandType)) {
         // first check for SelectKey annotation - that overrides everything else
+        // 如果有 @SelectKey 注解，则进行处理
         SelectKey selectKey = getAnnotationWrapper(method, false, SelectKey.class).map(x -> (SelectKey)x.getAnnotation()).orElse(null);
         if (selectKey != null) {
           keyGenerator = handleSelectKeyAnnotation(selectKey, mappedStatementId, getParameterType(method), languageDriver);
@@ -323,6 +329,8 @@ public class MapperAnnotationBuilder {
         keyGenerator = NoKeyGenerator.INSTANCE;
       }
 
+
+      // 初始化各种属性
       Integer fetchSize = null;
       Integer timeout = null;
       StatementType statementType = StatementType.PREPARED;
@@ -355,6 +363,7 @@ public class MapperAnnotationBuilder {
         }
       }
 
+      // 添加 mappedStatement
       assistant.addMappedStatement(
           mappedStatementId,
           sqlSource,
@@ -644,13 +653,41 @@ public class MapperAnnotationBuilder {
   private Optional<AnnotationWrapper> getAnnotationWrapper(Method method, boolean errorIfNoMatch,
       Collection<Class<? extends Annotation>> targetTypes) {
     String databaseId = configuration.getDatabaseId();
+
+
+    /**
+     *
+     * 下面的 lambda 写法 相当于：
+     *
+     *     Map<String, AnnotationWrapper> statementAnnotations = new HashMap<>();
+     *     for (Class<? extends Annotation> x : targetTypes) {
+     *       for (Annotation annotation : method.getAnnotationsByType(x)) {
+     *         AnnotationWrapper wrapper = new AnnotationWrapper(annotation);
+     *         statementAnnotations.merge(wrapper.getDatabaseId(), wrapper, new BiFunction<AnnotationWrapper, AnnotationWrapper, AnnotationWrapper>() {
+     *           @Override
+     *           public AnnotationWrapper apply(AnnotationWrapper existing, AnnotationWrapper duplicate) {
+     *             throw new BuilderException(String.format("Detected conflicting annotations '%s' and '%s' on '%s'.",
+     *               existing.getAnnotation(), duplicate.getAnnotation(),
+     *               method.getDeclaringClass().getName() + "." + method.getName()));
+     *           }
+     *         });
+     *       }
+     *     }
+     *
+     *
+     *
+     */
+
     Map<String, AnnotationWrapper> statementAnnotations = targetTypes.stream()
-        .flatMap(x -> Arrays.stream(method.getAnnotationsByType(x))).map(AnnotationWrapper::new)
+        .flatMap(x -> Arrays.stream(method.getAnnotationsByType(x)))
+        .map(AnnotationWrapper::new)
         .collect(Collectors.toMap(AnnotationWrapper::getDatabaseId, x -> x, (existing, duplicate) -> {
           throw new BuilderException(String.format("Detected conflicting annotations '%s' and '%s' on '%s'.",
               existing.getAnnotation(), duplicate.getAnnotation(),
               method.getDeclaringClass().getName() + "." + method.getName()));
         }));
+
+
     AnnotationWrapper annotationWrapper = null;
     if (databaseId != null) {
       annotationWrapper = statementAnnotations.get(databaseId);

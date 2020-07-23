@@ -29,6 +29,11 @@ import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.Configuration;
 
 /**
+ *
+ * 映射 SQL 语句，每个 <select />、<insert />、<update />、<delete /> 对应一个 MappedStatement 对象。
+ *
+ * 另外，比较特殊的是，`<selectKey />` 解析后，也会对应一个 MappedStatement 对象
+ *
  * @author Clinton Begin
  */
 public final class MappedStatement {
@@ -38,6 +43,9 @@ public final class MappedStatement {
   private String id;
   private Integer fetchSize;
   private Integer timeout;
+  /**
+   * 语句类型，STATEMENT, PREPARED, CALLABLE
+   */
   private StatementType statementType;
   private ResultSetType resultSetType;
   private SqlSource sqlSource;
@@ -47,6 +55,9 @@ public final class MappedStatement {
   private boolean flushCacheRequired;
   private boolean useCache;
   private boolean resultOrdered;
+  /**
+   * SQL 语句类型，UNKNOWN, INSERT, UPDATE, DELETE, SELECT, FLUSH
+   */
   private SqlCommandType sqlCommandType;
   private KeyGenerator keyGenerator;
   private String[] keyProperties;

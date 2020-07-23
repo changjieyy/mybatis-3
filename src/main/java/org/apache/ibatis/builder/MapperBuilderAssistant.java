@@ -274,7 +274,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
     if (unresolvedCacheRef) {
       throw new IncompleteElementException("Cache-ref not yet resolved");
     }
-
+    // 获得 id 编号，格式为 `${namespace}.${id}`
     id = applyCurrentNamespace(id, false);
     boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
 
@@ -296,12 +296,14 @@ public class MapperBuilderAssistant extends BaseBuilder {
         .useCache(valueOrDefault(useCache, isSelect))
         .cache(currentCache);
 
+    // 获取 ParameterMap，并设置到 MappedStatement.Builder 中
     ParameterMap statementParameterMap = getStatementParameterMap(parameterMap, parameterType, id);
     if (statementParameterMap != null) {
       statementBuilder.parameterMap(statementParameterMap);
     }
 
     MappedStatement statement = statementBuilder.build();
+    // 添加到 configuration
     configuration.addMappedStatement(statement);
     return statement;
   }
@@ -395,6 +397,9 @@ public class MapperBuilderAssistant extends BaseBuilder {
     resultMap = applyCurrentNamespace(resultMap, true);
 
     List<ResultMap> resultMaps = new ArrayList<>();
+
+    //  resultType 和 resultMap 之间只能同时使用一个。
+
     if (resultMap != null) {
       String[] resultMapNames = resultMap.split(",");
       for (String resultMapName : resultMapNames) {
